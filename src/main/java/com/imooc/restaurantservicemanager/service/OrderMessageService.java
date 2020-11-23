@@ -60,7 +60,7 @@ public class OrderMessageService {
                 "exchange.order.restaurant",
                 "key.restaurant"
         );
-
+        channel.basicQos(2);
         channel.basicConsume("queue.restaurant", false, deliverCallback, consumerTag -> {});
         while (true) {
             Thread.sleep(100000);
@@ -106,9 +106,9 @@ public class OrderMessageService {
                 }
             });
             //批量手动签收
-            if (message.getEnvelope().getDeliveryTag()%5 ==0 ) {
-                channel.basicAck(message.getEnvelope().getDeliveryTag(), true);
-            }
+            Thread.sleep(3000);
+            channel.basicAck(message.getEnvelope().getDeliveryTag(), false);
+
             String messageToSend = objectMapper.writeValueAsString(orderMessageDTO);
 
             channel.basicPublish("exchange.order.restaurant", "key.order", true, null, messageToSend.getBytes());
