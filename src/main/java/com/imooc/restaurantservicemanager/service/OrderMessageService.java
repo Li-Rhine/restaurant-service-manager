@@ -15,6 +15,8 @@ import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
 
 import java.io.IOException;
+import java.util.HashMap;
+import java.util.Map;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeoutException;
 
@@ -48,12 +50,19 @@ public class OrderMessageService {
                 false,
                 null
         );
+
+        Map<String, Object> args = new HashMap<>(16);
+        //队列参数
+        args.put("x-message-ttl", 15000);
+
+
+
         channel.queueDeclare(
                 "queue.restaurant",
                 true,
                 false,
                 false,
-                null
+                args
         );
         channel.queueBind(
                 "queue.restaurant",
