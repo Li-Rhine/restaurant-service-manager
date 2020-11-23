@@ -35,42 +35,37 @@ public class OrderMessageService {
 
     @Autowired
     RestaurantDao restaurantDao;
-
+    @Autowired
     Channel channel;
 
     @Async
     public void handleMessage() throws IOException, TimeoutException, InterruptedException {
-        ConnectionFactory connectionFactory = new ConnectionFactory();
-        connectionFactory.setHost("101.132.104.74");
-        try(Connection connection = connectionFactory.newConnection();
-            Channel channel = connection.createChannel();) {
-            this.channel = channel;
 
-            channel.exchangeDeclare(
-                    "exchange.order.restaurant",
-                    BuiltinExchangeType.DIRECT,
-                    true,
-                    false,
-                    null
-            );
-            channel.queueDeclare(
-                    "queue.restaurant",
-                    true,
-                    false,
-                    false,
-                    null
-            );
-            channel.queueBind(
-                    "queue.restaurant",
-                    "exchange.order.restaurant",
-                    "key.restaurant"
-            );
+        channel.exchangeDeclare(
+                "exchange.order.restaurant",
+                BuiltinExchangeType.DIRECT,
+                true,
+                false,
+                null
+        );
+        channel.queueDeclare(
+                "queue.restaurant",
+                true,
+                false,
+                false,
+                null
+        );
+        channel.queueBind(
+                "queue.restaurant",
+                "exchange.order.restaurant",
+                "key.restaurant"
+        );
 
-            channel.basicConsume("queue.restaurant", false, deliverCallback, consumerTag -> {});
-            while (true) {
-                Thread.sleep(100000);
-            }
+        channel.basicConsume("queue.restaurant", false, deliverCallback, consumerTag -> {});
+        while (true) {
+            Thread.sleep(100000);
         }
+
     }
 
 
@@ -110,8 +105,10 @@ public class OrderMessageService {
 
                 }
             });
-
-            channel.basicAck(message.getEnvelope().getDeliveryTag(), false);
+            //批量手动签收
+            if (message.getEnvelope().getDeliveryTag()%5 ==0 ) {
+                channel.basicAck(message.getEnvelope().getDeliveryTag(), true);
+            }
             String messageToSend = objectMapper.writeValueAsString(orderMessageDTO);
 
             channel.basicPublish("exchange.order.restaurant", "key.order", true, null, messageToSend.getBytes());
