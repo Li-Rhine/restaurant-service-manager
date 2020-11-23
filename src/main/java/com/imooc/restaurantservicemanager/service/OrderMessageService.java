@@ -11,6 +11,7 @@ import com.imooc.restaurantservicemanager.po.RestaurantPO;
 import com.rabbitmq.client.*;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.core.annotation.AnnotationUtils;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
 
@@ -44,6 +45,31 @@ public class OrderMessageService {
     public void handleMessage() throws IOException, TimeoutException, InterruptedException {
 
         channel.exchangeDeclare(
+                "exchange.dlx",
+                BuiltinExchangeType.TOPIC,
+                true,
+                false,
+                null
+        );
+
+        channel.queueDeclare(
+                "queue.dlx",
+                true,
+                false,
+                false,
+                null
+        );
+
+        channel.queueBind(
+                "queue.dlx",
+                "exchange.dlx",
+                "#"
+        );
+
+
+
+
+        channel.exchangeDeclare(
                 "exchange.order.restaurant",
                 BuiltinExchangeType.DIRECT,
                 true,
@@ -54,7 +80,10 @@ public class OrderMessageService {
         Map<String, Object> args = new HashMap<>(16);
         //队列参数
         args.put("x-message-ttl", 15000);
-
+        //出现死信转发到exchange.dlx交换机上
+        args.put("x-dead-letter-exchange", "exchange.dlx");
+        //设置长度为5 出现死信
+        args.put("x-max-length", 5);
 
 
         channel.queueDeclare(
