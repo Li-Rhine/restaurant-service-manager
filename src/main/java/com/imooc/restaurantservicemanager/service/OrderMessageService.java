@@ -91,15 +91,33 @@ public class OrderMessageService {
                 orderMessageDTO.setConfirmed(false);
             }
 
+            //这种走出try块后channel会是AutoClosable，自动关闭
             try(Connection connection = connectionFactory.newConnection();
                 Channel channel = connection.createChannel();) {
 
+//                channel.addReturnListener(new ReturnListener() {
+//                    @Override
+//                    public void handleReturn(int replyCode, String replyText, String exchange, String routingKey, AMQP.BasicProperties properties, byte[] body) throws IOException {
+//                        log.info("Message Return: replyCode:{}, replyText:{}, exchange:{}, routingKey:{}, properties:{}, body:{}", replyCode, replyText, exchange, routingKey, properties, new String(body));
+//                        // 除了打印log,可以添加别的业务操作
+//
+//                    }
+//                });
+
+                //和上面的写法是一样的
+                channel.addReturnListener(new ReturnCallback() {
+                    @Override
+                    public void handle(Return returnMessage) {
+                        log.info("Message Return:returnMessage:{}", returnMessage);
+
+                    }
+                });
+
+
                 String messageToSend = objectMapper.writeValueAsString(orderMessageDTO);
-                channel.basicPublish(
-                        "exchange.order.restaurant",
-                        "key.order",
-                        null,
-                        messageToSend.getBytes());
+
+                channel.basicPublish("exchange.order.restaurant", "key.order", true, null, messageToSend.getBytes());
+                Thread.sleep(1000);
             }
 
 
