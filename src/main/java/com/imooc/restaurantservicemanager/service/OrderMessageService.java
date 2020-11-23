@@ -36,12 +36,15 @@ public class OrderMessageService {
     @Autowired
     RestaurantDao restaurantDao;
 
+    Channel channel;
+
     @Async
     public void handleMessage() throws IOException, TimeoutException, InterruptedException {
         ConnectionFactory connectionFactory = new ConnectionFactory();
         connectionFactory.setHost("101.132.104.74");
         try(Connection connection = connectionFactory.newConnection();
             Channel channel = connection.createChannel();) {
+            this.channel = channel;
 
             channel.exchangeDeclare(
                     "exchange.order.restaurant",
@@ -63,7 +66,7 @@ public class OrderMessageService {
                     "key.restaurant"
             );
 
-            channel.basicConsume("queue.restaurant", true, deliverCallback, consumerTag -> {});
+            channel.basicConsume("queue.restaurant", false, deliverCallback, consumerTag -> {});
             while (true) {
                 Thread.sleep(100000);
             }
@@ -74,9 +77,6 @@ public class OrderMessageService {
     //具体消费逻辑
     DeliverCallback deliverCallback = ((consumerTag, message) -> {
         String messageBody = new String(message.getBody());
-
-        ConnectionFactory connectionFactory = new ConnectionFactory();
-        connectionFactory.setHost("101.132.104.74");
 
         try{
             //将消息反序列化
@@ -92,8 +92,6 @@ public class OrderMessageService {
             }
 
             //这种走出try块后channel会是AutoClosable，自动关闭
-            try(Connection connection = connectionFactory.newConnection();
-                Channel channel = connection.createChannel();) {
 
 //                channel.addReturnListener(new ReturnListener() {
 //                    @Override
@@ -104,21 +102,20 @@ public class OrderMessageService {
 //                    }
 //                });
 
-                //和上面的写法是一样的
-                channel.addReturnListener(new ReturnCallback() {
-                    @Override
-                    public void handle(Return returnMessage) {
-                        log.info("Message Return:returnMessage:{}", returnMessage);
+            //和上面的写法是一样的
+            channel.addReturnListener(new ReturnCallback() {
+                @Override
+                public void handle(Return returnMessage) {
+                    log.info("Message Return:returnMessage:{}", returnMessage);
 
-                    }
-                });
+                }
+            });
 
+            channel.basicAck(message.getEnvelope().getDeliveryTag(), false);
+            String messageToSend = objectMapper.writeValueAsString(orderMessageDTO);
 
-                String messageToSend = objectMapper.writeValueAsString(orderMessageDTO);
-
-                channel.basicPublish("exchange.order.restaurant", "key.order", true, null, messageToSend.getBytes());
-                Thread.sleep(1000);
-            }
+            channel.basicPublish("exchange.order.restaurant", "key.order", true, null, messageToSend.getBytes());
+            Thread.sleep(1000);
 
 
         }catch (Exception e) {
